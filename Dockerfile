@@ -1,32 +1,38 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
+# Não gerar .pyc e sempre logar direto
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Dependências de sistema
+# Dependências mínimas de sistema
+# libgl1 e libglib2.0-0 para opencv/pillow em alguns cenários
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  build-essential \
-  git \
-  libgl1 \
-  libglib2.0-0 \
-  gdal-bin \
-  libgdal-dev \
-  && rm -rf /var/lib/apt/lists/*
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copia requirements e instala
+# Copia apenas o requirements primeiro (melhor cache)
 COPY requirements.txt .
 
+# Instala PyTorch CPU-only (leve) + torchvision CPU-only
+# Ajuste de versão se quiser, mas essas funcionam bem com segmentation-models-pytorch 0.3.x
+RUN pip install --no-cache-dir \
+    torch==2.3.1+cpu \
+    torchvision==0.18.1+cpu \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Instala o restante das dependências
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia código
+# Agora copia o código do app
 COPY . .
 
-# Certifique-se de que o modelo esteja em /app/models dentro do contexto de build
-# (ex: models/deeplabv3plus_best_fold3_weights.pth)
+# Certifique-se que o modelo .pth esteja em /app/models/
+# ex: models/deeplabv3plus_best_fold3_weights.pth
 
 EXPOSE 8000
 
-# Comando de inicialização
+# Comando para subir a API
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

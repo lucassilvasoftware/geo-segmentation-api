@@ -117,8 +117,19 @@ def mask_to_color(mask: np.ndarray) -> Image.Image:
 def compute_class_stats(mask: np.ndarray):
     """
     Retorna lista:
-      [{class_id, pixels, percent}, ...]
+      [{class_id, class_name, pixels, percent}, ...]
     """
+    CLASS_NAMES = [
+        "Urbano",
+        "Vegetação Densa",
+        "Sombra",
+        "Vegetação Esparsa",
+        "Agricultura",
+        "Rocha",
+        "Solo Exposto",
+        "Água",
+    ]
+
     total_pixels = int(mask.size)
     counts = np.bincount(mask.flatten(), minlength=NUM_CLASSES)
 
@@ -129,6 +140,7 @@ def compute_class_stats(mask: np.ndarray):
         stats.append(
             {
                 "class_id": class_id,
+                "class_name": CLASS_NAMES[class_id],
                 "pixels": pixels,
                 "percent": round(percent, 4),
             }
