@@ -1,11 +1,13 @@
 import io
 import base64
 import os
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security.api_key import APIKeyHeader
 from PIL import Image, UnidentifiedImageError
+from dotenv import load_dotenv  # <- NEW
 
 from inference import (
     load_model,
@@ -15,6 +17,9 @@ from inference import (
     DEVICE,
     NUM_CLASSES,
 )
+
+# Carrega variáveis do .env (para ambiente local)
+load_dotenv()
 
 app = FastAPI(
     title="LULC Segmentation API",
@@ -71,7 +76,12 @@ model = None
 @app.on_event("startup")
 def on_startup():
     global model
-    model = load_model()
+    try:
+        model = load_model()
+    except FileNotFoundError as e:
+        # Se o modelo não for encontrado, deixa claro no log/erro:
+        # Em produção, o container vai falhar — o que é bom para você perceber o problema.
+        raise RuntimeError(str(e))
 
 
 # ========================
@@ -81,11 +91,15 @@ def on_startup():
 
 @app.get("/health", dependencies=[Depends(validate_api_key)])
 def health():
+    if model is None:
+        raise HTTPException(status_code=500, detail="Modelo não carregado no servidor.")
     return {"status": "ok"}
 
 
 @app.get("/info", dependencies=[Depends(validate_api_key)])
 def info():
+    if model is None:
+        raise HTTPException(status_code=500, detail="Modelo não carregado no servidor.")
     return {
         "model_name": "DeepLabV3Plus",
         "num_classes": NUM_CLASSES,
